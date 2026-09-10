@@ -5,3 +5,12 @@
 SEED_USER_EMAIL=tu@correo.com
 SEED_USER_NAME=Tu Nombre
 SEED_USER_PASSWORD=cambia-esta-clave
+
+# Runtime Node / Hostinger (opcional; el panel suele definir PORT)
+# PORT=3000
+# HOST=0.0.0.0
+# DATA_DIR=
+# SQLITE_FILE=mytickets.sqlite
+#
+# En el panel de Hostinger define SEED_USER_* como variables de entorno.
+# Entry file: server.js  |  Node 20 o 22  |  sin comando de build.

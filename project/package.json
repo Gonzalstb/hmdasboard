@@ -3,8 +3,16 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
     "build": "bash scripts/build.sh",
     "validate": "node scripts/validate-artifact.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.10.0"
   },
   "displayName": "Mi Agenda de Tickets"
 }

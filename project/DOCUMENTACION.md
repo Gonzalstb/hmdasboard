@@ -1,6 +1,6 @@
 # MyTickets — documentación del proyecto
 
-MyTickets (también llamada **Mi Agenda de Tickets**) es una aplicación de gestión de trabajo: tickets, agenda diaria, recordatorios, notas permanentes, standups y facturación. Corre como un **Cloudflare Worker** (ESM) con base **D1** (SQLite) y archivos en **R2**.
+MyTickets (también llamada **Mi Agenda de Tickets**) es una aplicación de gestión de trabajo: tickets, agenda diaria, recordatorios, notas permanentes, standups y facturación. El dominio vive en `worker/` (ESM). En local puede correr como **Cloudflare Worker** (D1 + R2) o como **servidor Node** (SQLite + disco) para Hostinger.
 
 Esta copia local corresponde a la versión 66 (10 de septiembre de 2026). La refactorización a módulos **no cambia rutas, SQL, validaciones, cookies ni la UI**: solo reparte el código que antes vivía en un único `worker/index.js`.
 
@@ -16,8 +16,35 @@ npx wrangler@latest dev --local --persist-to .wrangler/state
 
 La app queda en `http://localhost:8787`.
 
-Copia `project/.dev.vars.example` a `project/.dev.vars` y rellena el usuario semilla (`SEED_USER_EMAIL`, `SEED_USER_NAME`, `SEED_USER_PASSWORD`). Ese archivo **no se versiona**. Wrangler lo carga solo en local.
+Copia `project/.dev.vars.example` a `project/.dev.vars` y rellena el usuario semilla (`SEED_USER_EMAIL`, `SEED_USER_NAME`, `SEED_USER_PASSWORD`). Ese archivo **no se versiona**. Wrangler y el servidor Node lo cargan en local.
+
 Sin sesión, `GET /api/data` responde **401** (`Debes iniciar sesión.`). El login crea la cookie HttpOnly `mt_session` (SameSite=Lax, 30 días).
+
+### Hostinger (Node.js)
+
+En el onboarding elige **«Sube tu código, nosotros lo alojamos»** → **Node.js** (no WordPress ni estático). Conecta el repo de GitHub (`Gonzalstb/hmdasboard`).
+
+Ajustes del panel (Hostinger a veces los autocompleta mal):
+
+| Campo | Valor |
+| --- | --- |
+| Framework | Other (no estático) |
+| Node.js | 20 o 22 |
+| Root directory | raíz del repo (vacío) |
+| Build command | vacío (no uses `build`: eso es el bundle de Cloudflare) |
+| Entry file | `server.js` |
+| Output directory | vacío |
+
+El servidor en `project/server/` traduce HTTP de Node al `fetch` del Worker, SQLite en disco (como D1) y archivos en disco (como R2). **Misma UI, mismas rutas y mismas acciones.**
+
+Variables en el panel (obligatorias la primera vez): `SEED_USER_EMAIL`, `SEED_USER_NAME`, `SEED_USER_PASSWORD`. `PORT` lo pone Hostinger. Opcional: `DATA_DIR` (si no, en Hostinger se usa `~/domains/{dominio}/mytickets-data` para que un redeploy no borre tickets ni adjuntos), `SQLITE_FILE`.
+
+```sh
+npm install
+npm start
+```
+
+La app queda en `http://localhost:3000` si no hay `PORT`.
 
 Datos y adjuntos de la copia local: carpetas `data/` y `attachments/` en la raíz (solo en tu máquina; no van a git). Ver `README-LOCAL.md`.
 
@@ -49,10 +76,9 @@ Navegador
 
 ## Mapa de carpetas
 
-Todo el código de la app está bajo `project/worker/`. Wrangler entra por `worker/index.js` (`main` en `wrangler.toml`).
-
 ```
-worker/
+server/                    Runtime Hostinger: SQLite + disco + HTTP Node
+worker/                    Dominio (igual en Cloudflare y Node)
 ├── index.js                 Punto de entrada: reexporta el router
 ├── http/
 │   ├── router.js            GET /, login, logout, /api/data, adjuntos
@@ -73,7 +99,7 @@ worker/
 └── domain/
     ├── data.js              SELECT agregado del workspace (siempre filtrado por user_id)
     ├── links.js             Validación de enlaces de agenda
-    ├── attachments.js       Subida a R2 de documentos de notas
+    ├── attachments.js       Subida de documentos de notas
     └── actions/             Una acción de POST /api/data = un archivo
 ```
 

@@ -30,6 +30,17 @@ Necesitas Node.js 20 o posterior.
 
 Wrangler mostrará la dirección local, normalmente `http://localhost:8787`.
 
+## Ejecutar en local / Hostinger (Node.js)
+
+Desde la raíz del repo (Node 20+):
+
+```sh
+npm install
+npm start
+```
+
+Por defecto escucha en `http://localhost:3000`. En Hostinger: **«Sube tu código, nosotros lo alojamos»** → **Node.js** (no WordPress ni estático). Entry file: `server.js`. Node 20 o 22. Sin build. Variables: `SEED_USER_EMAIL`, `SEED_USER_NAME`, `SEED_USER_PASSWORD`.
+
 ## Privacidad
 
 No subas `data/`, `attachments/` ni `.dev.vars` a un remoto público.
