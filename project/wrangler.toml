@@ -1,0 +1,12 @@
+name = "mi-agenda-tickets-local"
+main = "worker/index.js"
+compatibility_date = "2026-09-10"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "mytickets-local"
+database_id = "local"
+
+[[r2_buckets]]
+binding = "FILES"
+bucket_name = "mytickets-files-local"

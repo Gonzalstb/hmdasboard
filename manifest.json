@@ -1,0 +1,36 @@
+{
+  "project": "Mi Agenda de Tickets",
+  "site_version": 66,
+  "source_commit": "7eecc67b40d27d4b650dbb39e429ac3e7adaa105",
+  "export_date": "2026-09-10",
+  "database_integrity": "ok",
+  "tables": {
+    "agenda_task_comments": 0,
+    "agenda_tasks": 11,
+    "app_meta": 12,
+    "attention_markers": 5,
+    "billing_carryovers": 7,
+    "comments": 111,
+    "labels": 5,
+    "permanent_note_attachments": 1,
+    "permanent_notes": 5,
+    "reminders": 6,
+    "standup_guides": 5,
+    "standup_items": 33,
+    "statuses": 11,
+    "ticket_labels": 8,
+    "ticket_status_history": 70,
+    "tickets": 34
+  },
+  "attachments": {
+    "count": 1,
+    "bytes": 397207
+  },
+  "sha256": {
+    "data/mytickets.json": "75cb06c460d160a748d6edf8436c64d0a042aca48c99e173d3454cd4bdc73183",
+    "data/mytickets.sqlite": "a7f11e9f3d0a8e745b6eaf9472ce63ee889dd818cbc0eb4db8f9c32f637f2690",
+    "data/mytickets.sql": "91a292d635d7324bb629f501fa78997a5c136a634d8e944b330ce9ae15f1443c",
+    "attachments/WMF_BritishDressage_Handover_v1.3_3.pdf": "d600f2728cc223127d813775e65b644327eb8d7d54dedfe156e533de1a16f6b5",
+    "project/worker/index.js": "7a976baf49788d4f7641f903bc5a156601fe78ee6076143add05b00e374ca9bd"
+  }
+}

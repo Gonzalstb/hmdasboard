@@ -1,0 +1,7 @@
+# Usuario semilla local (Wrangler lo inyecta en env del Worker).
+# Copia este archivo a `.dev.vars` y rellena valores reales.
+# `.dev.vars` no se versiona.
+
+SEED_USER_EMAIL=tu@correo.com
+SEED_USER_NAME=Tu Nombre
+SEED_USER_PASSWORD=cambia-esta-clave

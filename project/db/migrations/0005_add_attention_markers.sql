@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS attention_markers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  color TEXT NOT NULL,
+  position INTEGER NOT NULL DEFAULT 0
+);
+
+ALTER TABLE tickets ADD COLUMN attention_marker_id INTEGER;

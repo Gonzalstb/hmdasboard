@@ -1,0 +1,19 @@
+CREATE TABLE IF NOT EXISTS standup_guides (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL DEFAULT '',
+  standup_date TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS standup_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  guide_id INTEGER NOT NULL,
+  position INTEGER NOT NULL DEFAULT 0,
+  content TEXT NOT NULL,
+  is_done INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS standup_items_guide_position_idx
+  ON standup_items(guide_id, position, id);

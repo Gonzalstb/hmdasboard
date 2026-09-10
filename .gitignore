@@ -1,0 +1,20 @@
+# Estado local de desarrollo
+.cursor/
+project/.wrangler/
+**/.wrangler/
+
+# Secretos locales (Wrangler)
+.env
+.env.*
+!.env.example
+project/.dev.vars
+.dev.vars
+
+# Datos de trabajo / exportación local (no versionar)
+data/
+attachments/
+*.zip
+MyTickets-local-backup*/
+
+# Dependencias
+node_modules/
