@@ -1,8 +1,8 @@
 # MyTickets — documentación del proyecto
 
-MyTickets (también llamada **Mi Agenda de Tickets**) es una aplicación de gestión de trabajo: tickets, agenda diaria, recordatorios, notas permanentes, standups y facturación. El dominio vive en `worker/` (ESM). En local puede correr como **Cloudflare Worker** (D1 + R2) o como **servidor Node** (SQLite + disco) para Hostinger.
+MyTickets (también llamada **Mi Agenda de Tickets**) es una aplicación de gestión de trabajo: tickets, agenda diaria, recordatorios, notas permanentes, standups y facturación. El dominio original vive en `worker/` (ESM). En Hostinger corre como **Laravel 13** (`laravel/`), con SQLite y archivos en disco. En local también puede arrancar como Cloudflare Worker o Node.
 
-Esta copia local corresponde a la versión 66 (10 de septiembre de 2026). La refactorización a módulos **no cambia rutas, SQL, validaciones, cookies ni la UI**: solo reparte el código que antes vivía en un único `worker/index.js`.
+Esta copia local corresponde a la versión 66 (10 de septiembre de 2026). El port a Laravel **no cambia rutas, SQL, validaciones, cookies ni la UI**.
 
 ---
 
@@ -20,31 +20,32 @@ Copia `project/.dev.vars.example` a `project/.dev.vars` y rellena el usuario sem
 
 Sin sesión, `GET /api/data` responde **401** (`Debes iniciar sesión.`). El login crea la cookie HttpOnly `mt_session` (SameSite=Lax, 30 días).
 
-### Hostinger (Node.js)
+### Hostinger (Laravel 13 / PHP)
 
-En el onboarding elige **«Sube tu código, nosotros lo alojamos»** → **Node.js** (no WordPress ni estático). Conecta el repo de GitHub (`Gonzalstb/hmdasboard`).
-
-Ajustes del panel (Hostinger a veces los autocompleta mal):
-
-| Campo | Valor |
-| --- | --- |
-| Framework | Other (no estático) |
-| Node.js | 20 o 22 |
-| Root directory | raíz del repo (vacío) |
-| Build command | vacío (no uses `build`: eso es el bundle de Cloudflare) |
-| Entry file | `server.js` |
-| Output directory | vacío |
-
-El servidor en `project/server/` traduce HTTP de Node al `fetch` del Worker, SQLite en disco (como D1) y archivos en disco (como R2). **Misma UI, mismas rutas y mismas acciones.**
-
-Variables en el panel (obligatorias la primera vez): `SEED_USER_EMAIL`, `SEED_USER_NAME`, `SEED_USER_PASSWORD`. `PORT` lo pone Hostinger. Opcional: `DATA_DIR` (si no, en Hostinger se usa `~/domains/{dominio}/mytickets-data` para que un redeploy no borre tickets ni adjuntos), `SQLITE_FILE`.
+En el onboarding elige **«Sube tu PHP o HTML»** (usuarios avanzados) o un sitio PHP y apunta el document root a **`laravel/public`**. PHP 8.3+. En el servidor:
 
 ```sh
-npm install
-npm start
+cd laravel
+composer install --no-dev
+cp .env.example .env
+php artisan key:generate
 ```
 
-La app queda en `http://localhost:3000` si no hay `PORT`.
+Permisos de escritura en `laravel/storage` y `laravel/bootstrap/cache`. Variables: `SEED_USER_EMAIL`, `SEED_USER_NAME`, `SEED_USER_PASSWORD`. Opcional: `DATA_DIR` (fuera del deploy, para no perder SQLite ni adjuntos).
+
+En local:
+
+```sh
+cd laravel
+composer install
+php artisan serve
+```
+
+La app queda en `http://localhost:8000`. Misma UI, mismas rutas (`/`, `/api/login`, `/api/data`, adjuntos) y las mismas acciones.
+
+### Hostinger (Node.js, opcional)
+
+Si en vez de PHP usas **«Sube tu código» → Node.js**, el runtime Node sigue en la raíz (`server.js`).
 
 Datos y adjuntos de la copia local: carpetas `data/` y `attachments/` en la raíz (solo en tu máquina; no van a git). Ver `README-LOCAL.md`.
 
@@ -77,8 +78,9 @@ Navegador
 ## Mapa de carpetas
 
 ```
-server/                    Runtime Hostinger: SQLite + disco + HTTP Node
-worker/                    Dominio (igual en Cloudflare y Node)
+laravel/                   Runtime Hostinger: Laravel 13 + SQLite + disco
+server/                    Runtime Node opcional
+worker/                    Dominio original (Cloudflare Worker)
 ├── index.js                 Punto de entrada: reexporta el router
 ├── http/
 │   ├── router.js            GET /, login, logout, /api/data, adjuntos

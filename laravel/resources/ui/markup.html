@@ -1,0 +1,35 @@
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand"><b>✓</b><span>MyTickets</span></div>
+      <nav>
+        <button data-view="active" class="on"><span class="ico">⌂</span><span>Mis tickets</span><em id="nav-count">0</em></button>
+        <button data-view="agenda"><span class="ico">▦</span><span>Agenda</span><em id="agenda-count">0</em></button>
+        <button data-view="all"><span class="ico">▤</span><span>Todos los tickets</span></button>
+        <button data-view="standups"><span class="ico">☷</span><span>Guía de standups</span><em id="standup-count">0</em></button>
+        <button data-view="reminders"><span class="ico">◷</span><span>Recordatorios</span><em id="reminder-count">0</em></button>
+        <button data-view="billing"><span class="ico">€</span><span>Facturación pendiente</span><em id="billing-count">0</em></button>
+        <button data-view="notes"><span class="ico">▰</span><span>Notas</span><em id="notes-count">0</em></button>
+        <button data-view="settings"><span class="ico">⚙</span><span>Ajustes visuales</span></button>
+        <button data-view="account"><span class="ico">☺</span><span>Cuenta</span></button>
+      </nav>
+      <div class="side-note"><b>✦ Tu espacio personal</b><p>Organiza el trabajo a tu manera, sin cambiar nada en Jira.</p></div>
+      <div class="profile" data-view="account" title="Abrir cuenta"><span class="avatar" id="user-avatar">G</span><div><b id="user-name">Mi agenda</b><small id="user-email">Inicia sesión</small></div><i class="saved"></i></div>
+    </aside>
+    <main id="app"><div class="loading">Preparando tu agenda…</div></main>
+    <div class="mobile-nav"><button data-view="active">⌂<small>Activos</small></button><button data-view="agenda">▦<small>Agenda</small><em id="mobile-agenda-count">0</em></button><button data-view="all">▤<small>Todos</small></button><button class="add" data-new>＋</button><button data-view="standups">☷<small>Standup</small></button><button data-view="reminders">◷<small>Recordar</small></button><button data-view="billing">€<small>Facturar</small><em id="mobile-billing-count">0</em></button><button data-view="notes">▰<small>Notas</small></button><button data-view="settings">⚙<small>Ajustes</small></button><button data-view="account">☺<small>Cuenta</small></button></div>
+  </div>
+  <button type="button" class="logout-fab" data-logout title="Cerrar sesión" aria-label="Cerrar sesión">⎋</button>
+  <div id="overlay"></div>
+  <div id="login-screen" class="login-screen" hidden>
+    <section class="login-card" aria-labelledby="login-title">
+      <div class="brand-row"><b>✓</b><span>MyTickets</span></div>
+      <h1 id="login-title">Inicia sesión</h1>
+      <p>Tu agenda, tickets y notas quedan vinculados a tu usuario.</p>
+      <div class="login-error" id="login-error"></div>
+      <form id="login-form">
+        <label class="field">Correo<input name="email" type="email" autocomplete="username" required placeholder="tu@correo.com"></label>
+        <label class="field">Contraseña<input name="password" type="password" autocomplete="current-password" required></label>
+        <button class="primary" type="submit">Entrar</button>
+      </form>
+    </section>
+  </div>

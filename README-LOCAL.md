@@ -30,6 +30,17 @@ Necesitas Node.js 20 o posterior.
 
 Wrangler mostrará la dirección local, normalmente `http://localhost:8787`.
 
+## Ejecutar en Hostinger (Laravel 13)
+
+Desde `laravel/` (PHP 8.3+):
+
+```sh
+composer install
+php artisan serve
+```
+
+Document root en Hostinger: `laravel/public`. Variables: `SEED_USER_EMAIL`, `SEED_USER_NAME`, `SEED_USER_PASSWORD`.
+
 ## Ejecutar en local / Hostinger (Node.js)
 
 Desde la raíz del repo (Node 20+):
