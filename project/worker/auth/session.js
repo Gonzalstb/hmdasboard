@@ -17,6 +17,6 @@ export async function sessionUser(db, request) {
   const token = cookieValue(request, SESSION_COOKIE);
   if (!token) return null;
   await db.prepare("DELETE FROM sessions WHERE expires_at < datetime('now')").run();
-  return db.prepare("SELECT u.id,u.email,u.name,u.created_at createdAt FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND s.expires_at >= datetime('now')")
+  return db.prepare("SELECT u.id,u.email,u.name,u.role,u.created_at createdAt FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND s.expires_at >= datetime('now')")
     .bind(token).first();
 }

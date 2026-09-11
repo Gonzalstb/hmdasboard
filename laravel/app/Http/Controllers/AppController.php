@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Domain\ActionDispatcher;
 use App\Domain\AuthSessions;
+use App\Domain\ForbiddenException;
 use App\Domain\NoteAttachments;
 use App\Domain\SchemaInstaller;
 use App\Domain\WorkspaceData;
@@ -13,6 +14,7 @@ use App\Support\FileStore;
 use App\Support\PasswordHasher;
 use App\Support\SqliteStore;
 use App\Support\Values;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Symfony\Component\HttpFoundation\Cookie;
@@ -67,7 +69,7 @@ final class AppController extends Controller
             SchemaInstaller::ensure($this->db);
             $payload = $this->jsonBody($request);
             $email = Values::normalizeEmail($payload->email ?? '');
-            $user = $this->db->prepare('SELECT id,email,name,password_hash passwordHash,password_salt passwordSalt FROM users WHERE email=?')->bind($email)->first();
+            $user = $this->db->prepare('SELECT id,email,name,role,password_hash passwordHash,password_salt passwordSalt FROM users WHERE email=?')->bind($email)->first();
             if (! $user || ! PasswordHasher::verify((string) ($payload->password ?? ''), $user->passwordHash, $user->passwordSalt)) {
                 return $this->json(['error' => 'Correo o contraseña incorrectos.'], 401);
             }
@@ -92,7 +94,7 @@ final class AppController extends Controller
     public function data(Request $request)
     {
         $user = $this->requireUser($request);
-        if ($user instanceof \Illuminate\Http\JsonResponse) {
+        if ($user instanceof JsonResponse) {
             return $user;
         }
         try {
@@ -111,7 +113,9 @@ final class AppController extends Controller
 
             return $response;
         } catch (\Throwable $error) {
-            return $this->json(['error' => $error->getMessage() ?: 'No se pudo guardar.'], 400);
+            $status = $error instanceof ForbiddenException ? 403 : 400;
+
+            return $this->json(['error' => $error->getMessage() ?: 'No se pudo guardar.'], $status);
         }
     }
 
@@ -121,7 +125,7 @@ final class AppController extends Controller
             return response('Method not allowed', 405, self::NO_STORE);
         }
         $user = $this->requireUser($request);
-        if ($user instanceof \Illuminate\Http\JsonResponse) {
+        if ($user instanceof JsonResponse) {
             return $user;
         }
         try {
@@ -143,7 +147,7 @@ final class AppController extends Controller
             return response('Method not allowed', 405, self::NO_STORE);
         }
         $user = $this->requireUser($request);
-        if ($user instanceof \Illuminate\Http\JsonResponse) {
+        if ($user instanceof JsonResponse) {
             return $user;
         }
         try {
@@ -197,7 +201,7 @@ final class AppController extends Controller
         return json_decode(json_encode($payload, JSON_THROW_ON_ERROR), false, 512, JSON_THROW_ON_ERROR);
     }
 
-    private function json(array $body, int $status = 200): \Illuminate\Http\JsonResponse
+    private function json(array $body, int $status = 200): JsonResponse
     {
         return response()->json($body, $status, self::NO_STORE);
     }

@@ -11,7 +11,7 @@ import { number } from "../../lib/values.js";
 import { EARLY_RETURN } from "./early-return.js";
 
 export async function handle(db, payload, filesBucket, uid, result) {
-    const id=number(payload.id),statusId=number(payload.statusId),targetStatus=await db.prepare("SELECT id,name,color,CASE WHEN lower(name)='done' THEN 1 ELSE 0 END isDone,CASE WHEN lower(name)='cancelled' THEN 1 ELSE 0 END isCancelled FROM statuses WHERE id=?").bind(statusId).first();
+    const id=number(payload.id),statusId=number(payload.statusId),targetStatus=await db.prepare("SELECT id,name,color,CASE WHEN lower(name)='done' THEN 1 ELSE 0 END isDone,CASE WHEN lower(name)='cancelled' THEN 1 ELSE 0 END isCancelled FROM statuses WHERE id=? AND user_id=?").bind(statusId,uid).first();
     if(!targetStatus)throw new Error("El estado seleccionado ya no existe.");
     const currentStatus=await db.prepare("SELECT s.id statusId,s.name statusName,s.color statusColor FROM tickets t JOIN statuses s ON s.id=t.status_id WHERE t.id=? AND t.user_id=?").bind(id,uid).first();
     if(!currentStatus)throw new Error("El ticket ya no existe.");

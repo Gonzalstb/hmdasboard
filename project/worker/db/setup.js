@@ -24,6 +24,7 @@ import { migrateAgendaTasksV2 } from "./migrations/agenda-tasks-v2.js";
 import { migrateAgendaTasksV3 } from "./migrations/agenda-tasks-v3.js";
 import { migrateAgendaTaskComments } from "./migrations/agenda-task-comments.js";
 import { migrateUsers } from "./migrations/users.js";
+import { migrateUserRoles } from "./migrations/users-roles.js";
 import { seedUserFromEnv } from "../config/seed-user.js";
 
 export async function setup(db, env) {
@@ -71,6 +72,7 @@ export async function setup(db, env) {
   await migrateAgendaTasks(db);
   await migrateAgendaTasksV2(db);await migrateAgendaTasksV3(db);await migrateAgendaTaskComments(db);
   await migrateUsers(db, seedUserFromEnv(env));
+  await migrateUserRoles(db, seedUserFromEnv(env));
 }
 
 export const setupPromises = new WeakMap();
@@ -78,7 +80,7 @@ export const setupPromises = new WeakMap();
 export async function ensureSetup(db, env) {
   let promise = setupPromises.get(db);
   if (!promise) {
-    promise = (async()=>{try{const ready=await db.prepare("SELECT COUNT(*) total FROM app_meta WHERE value='done' AND key IN ('permanent_note_attachments_v1','billing_carryovers_v1','agenda_tasks_v1','agenda_tasks_v2','agenda_tasks_v3','agenda_task_comments_v1','users_v1')").first();if(Number(ready?.total)===7)return}catch(error){}await setup(db, env)})().catch(error => {
+    promise = (async()=>{try{const ready=await db.prepare("SELECT COUNT(*) total FROM app_meta WHERE value='done' AND key IN ('permanent_note_attachments_v1','billing_carryovers_v1','agenda_tasks_v1','agenda_tasks_v2','agenda_tasks_v3','agenda_task_comments_v1','users_v1','users_roles_v1')").first();if(Number(ready?.total)===8)return}catch(error){}await setup(db, env)})().catch(error => {
       setupPromises.delete(db);
       throw error;
     });

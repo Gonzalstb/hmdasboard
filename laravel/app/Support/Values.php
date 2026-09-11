@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Support;
 
+use App\Domain\UserAccess;
+
 final class Values
 {
     public static function text(mixed $value): string
@@ -70,6 +72,7 @@ final class Values
             'id' => (int) $row->id,
             'email' => (string) $row->email,
             'name' => (string) ($row->name ?? ''),
+            'role' => UserAccess::roleOf($row),
             'createdAt' => $row->createdAt ?? $row->created_at ?? null,
         ];
     }

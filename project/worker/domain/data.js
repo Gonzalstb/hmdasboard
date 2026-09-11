@@ -6,11 +6,12 @@
 
 import { ensureSetup } from "../db/setup.js";
 import { publicUser } from "../auth/identity.js";
+import { isSuperadmin } from "../auth/access.js";
 
 export async function getData(db, userId) {
   await ensureSetup(db);
   const uid = Number(userId);
-  const [statuses, labels, attentionMarkers, tickets, ticketLabels, comments, statusHistory, reminders, permanentNotes, permanentNoteAttachments, standups, standupItems, billingItems, agendaTasks, agendaTaskComments, users] = await db.batch([
+  const [statuses, labels, attentionMarkers, tickets, ticketLabels, comments, statusHistory, reminders, permanentNotes, permanentNoteAttachments, standups, standupItems, billingItems, agendaTasks, agendaTaskComments] = await db.batch([
     db.prepare("SELECT id,name,color,is_done isDone,position FROM statuses WHERE user_id=? ORDER BY position,id").bind(uid),
     db.prepare("SELECT id,name,color FROM labels WHERE user_id=? ORDER BY name COLLATE NOCASE").bind(uid),
     db.prepare("SELECT id,name,color,position FROM attention_markers WHERE user_id=? ORDER BY position,id").bind(uid),
@@ -26,8 +27,10 @@ export async function getData(db, userId) {
     db.prepare("SELECT id,ticket_id ticketId,ticket_key ticketKey,ticket_title ticketTitle,jira_url jiraUrl,worked_month workedMonth,invoice_month invoiceMonth,minutes,client,project,notes,defer_reason deferReason,status,invoiced_at invoicedAt,created_at createdAt,updated_at updatedAt FROM billing_carryovers WHERE user_id=? ORDER BY status,invoice_month,id").bind(uid),
     db.prepare("SELECT id,task_date taskDate,content,position,is_done isDone,link_type linkType,link_id linkId,copied_from_id copiedFromId,subtasks,created_at createdAt,updated_at updatedAt,completed_at completedAt FROM agenda_tasks WHERE user_id=? ORDER BY task_date,position,id").bind(uid),
     db.prepare("SELECT c.id,c.task_id taskId,c.subtask_id subtaskId,c.content,c.created_at createdAt,c.updated_at updatedAt FROM agenda_task_comments c JOIN agenda_tasks a ON a.id=c.task_id WHERE a.user_id=? ORDER BY c.created_at DESC,c.id DESC").bind(uid),
-    db.prepare("SELECT id,email,name,created_at createdAt FROM users ORDER BY id"),
   ]);
-  const current = await db.prepare("SELECT id,email,name,created_at createdAt FROM users WHERE id=?").bind(uid).first();
-  return { user: publicUser(current), users: users.results.map(publicUser), statuses: statuses.results, labels: labels.results, attentionMarkers: attentionMarkers.results, tickets: tickets.results, ticketLabels: ticketLabels.results, comments: comments.results, statusHistory: statusHistory.results, reminders: reminders.results, permanentNotes: permanentNotes.results, permanentNoteAttachments: permanentNoteAttachments.results, standups: standups.results, standupItems: standupItems.results, billingItems: billingItems.results, agendaTasks: agendaTasks.results, agendaTaskComments: agendaTaskComments.results };
+  const current = await db.prepare("SELECT id,email,name,role,created_at createdAt FROM users WHERE id=?").bind(uid).first();
+  const users = isSuperadmin(current)
+    ? (await db.prepare("SELECT id,email,name,role,created_at createdAt FROM users ORDER BY id").all()).results
+    : [];
+  return { user: publicUser(current), users: users.map(publicUser), statuses: statuses.results, labels: labels.results, attentionMarkers: attentionMarkers.results, tickets: tickets.results, ticketLabels: ticketLabels.results, comments: comments.results, statusHistory: statusHistory.results, reminders: reminders.results, permanentNotes: permanentNotes.results, permanentNoteAttachments: permanentNoteAttachments.results, standups: standups.results, standupItems: standupItems.results, billingItems: billingItems.results, agendaTasks: agendaTasks.results, agendaTaskComments: agendaTaskComments.results };
 }

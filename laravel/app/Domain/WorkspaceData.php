@@ -29,7 +29,6 @@ final class WorkspaceData
             $billingItems,
             $agendaTasks,
             $agendaTaskComments,
-            $users,
         ] = $db->batch([
             $db->prepare('SELECT id,name,color,is_done isDone,position FROM statuses WHERE user_id=? ORDER BY position,id')->bind($uid),
             $db->prepare('SELECT id,name,color FROM labels WHERE user_id=? ORDER BY name')->bind($uid),
@@ -46,13 +45,15 @@ final class WorkspaceData
             $db->prepare('SELECT id,ticket_id ticketId,ticket_key ticketKey,ticket_title ticketTitle,jira_url jiraUrl,worked_month workedMonth,invoice_month invoiceMonth,minutes,client,project,notes,defer_reason deferReason,status,invoiced_at invoicedAt,created_at createdAt,updated_at updatedAt FROM billing_carryovers WHERE user_id=? ORDER BY status,invoice_month,id')->bind($uid),
             $db->prepare('SELECT id,task_date taskDate,content,position,is_done isDone,link_type linkType,link_id linkId,copied_from_id copiedFromId,subtasks,created_at createdAt,updated_at updatedAt,completed_at completedAt FROM agenda_tasks WHERE user_id=? ORDER BY task_date,position,id')->bind($uid),
             $db->prepare('SELECT c.id,c.task_id taskId,c.subtask_id subtaskId,c.content,c.created_at createdAt,c.updated_at updatedAt FROM agenda_task_comments c JOIN agenda_tasks a ON a.id=c.task_id WHERE a.user_id=? ORDER BY c.created_at DESC,c.id DESC')->bind($uid),
-            $db->prepare('SELECT id,email,name,created_at createdAt FROM users ORDER BY id'),
         ]);
-        $current = $db->prepare('SELECT id,email,name,created_at createdAt FROM users WHERE id=?')->bind($uid)->first();
+        $current = $db->prepare('SELECT id,email,name,role,created_at createdAt FROM users WHERE id=?')->bind($uid)->first();
+        $users = UserAccess::isSuperadmin($current)
+            ? $db->prepare('SELECT id,email,name,role,created_at createdAt FROM users ORDER BY id')->all()->results
+            : [];
 
         return [
             'user' => Values::publicUser($current),
-            'users' => array_map(fn (object $row) => Values::publicUser($row), $users->results),
+            'users' => array_map(fn (object $row) => Values::publicUser($row), $users),
             'statuses' => $statuses->results,
             'labels' => $labels->results,
             'attentionMarkers' => $attentionMarkers->results,

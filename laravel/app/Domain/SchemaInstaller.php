@@ -31,8 +31,8 @@ final class SchemaInstaller
             return;
         }
         try {
-            $ready = $db->prepare("SELECT COUNT(*) total FROM app_meta WHERE value='done' AND `key` IN ('permanent_note_attachments_v1','billing_carryovers_v1','agenda_tasks_v1','agenda_tasks_v2','agenda_tasks_v3','agenda_task_comments_v1','users_v1')")->first();
-            if ((int) ($ready->total ?? 0) === 7) {
+            $ready = $db->prepare("SELECT COUNT(*) total FROM app_meta WHERE value='done' AND `key` IN ('permanent_note_attachments_v1','billing_carryovers_v1','agenda_tasks_v1','agenda_tasks_v2','agenda_tasks_v3','agenda_task_comments_v1','users_v1','users_roles_v1')")->first();
+            if ((int) ($ready->total ?? 0) === 8) {
                 $db->schemaReady = true;
 
                 return;
@@ -84,6 +84,7 @@ final class SchemaInstaller
         }
 
         self::migrateUsers($db);
+        self::migrateRoles($db);
     }
 
     /**
@@ -150,7 +151,7 @@ final class SchemaInstaller
             "CREATE TABLE IF NOT EXISTS standup_items (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, guide_id BIGINT NOT NULL, section VARCHAR(40) NOT NULL DEFAULT 'points', position INT NOT NULL DEFAULT 0, content TEXT NOT NULL, ticket_key VARCHAR(80) NOT NULL DEFAULT '', ticket_title VARCHAR(255) NOT NULL DEFAULT '', is_done INT NOT NULL DEFAULT 0, created_at {$ts}) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
             'CREATE INDEX IF NOT EXISTS standup_items_guide_position_idx ON standup_items(guide_id,position,id)',
             'CREATE TABLE IF NOT EXISTS app_meta (`key` VARCHAR(64) NOT NULL, value VARCHAR(255) NOT NULL, PRIMARY KEY (`key`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
-            "CREATE TABLE IF NOT EXISTS users (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, email VARCHAR(255) NOT NULL, name VARCHAR(80) NOT NULL DEFAULT '', password_hash VARCHAR(255) NOT NULL, password_salt VARCHAR(255) NOT NULL, created_at {$ts}, updated_at {$ts}, UNIQUE KEY users_email_unique (email)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+            "CREATE TABLE IF NOT EXISTS users (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, email VARCHAR(255) NOT NULL, name VARCHAR(80) NOT NULL DEFAULT '', password_hash VARCHAR(255) NOT NULL, password_salt VARCHAR(255) NOT NULL, role VARCHAR(32) NOT NULL DEFAULT 'user', created_at {$ts}, updated_at {$ts}, UNIQUE KEY users_email_unique (email)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
             "CREATE TABLE IF NOT EXISTS sessions (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, user_id BIGINT NOT NULL, token VARCHAR(128) NOT NULL, expires_at VARCHAR(40) NOT NULL, created_at {$ts}, UNIQUE KEY sessions_token_unique (token)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
             'CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token)',
             'CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions(expires_at)',
@@ -163,7 +164,7 @@ final class SchemaInstaller
             return;
         }
         foreach ([
-            "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL UNIQUE, name TEXT NOT NULL DEFAULT '', password_hash TEXT NOT NULL, password_salt TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)",
+            "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL UNIQUE, name TEXT NOT NULL DEFAULT '', password_hash TEXT NOT NULL, password_salt TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'user', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)",
             'CREATE TABLE IF NOT EXISTS sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, token TEXT NOT NULL UNIQUE, expires_at TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)',
             'CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token)',
             'CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions(expires_at)',
@@ -207,6 +208,41 @@ final class SchemaInstaller
             $db->prepare($db->upsertMeta())->bind($key, 'done')->run();
         }
         self::seedWorkspace($db, $userId);
+        self::migrateRoles($db);
+    }
+
+    private static function migrateRoles(SqliteStore $db): void
+    {
+        $key = 'users_roles_v1';
+        if (! $db->hasColumn('users', 'role')) {
+            $type = $db->isMysql() ? "VARCHAR(32) NOT NULL DEFAULT 'user'" : "TEXT NOT NULL DEFAULT 'user'";
+            $db->prepare('ALTER TABLE users ADD COLUMN role '.$type)->run();
+        }
+        foreach (['statuses', 'labels', 'attention_markers', 'tickets', 'reminders', 'permanent_notes', 'standup_guides', 'agenda_tasks', 'billing_carryovers'] as $table) {
+            $index = 'idx_'.$table.'_user_id';
+            try {
+                $db->prepare('CREATE INDEX IF NOT EXISTS '.$index.' ON '.$table.'(user_id)')->run();
+            } catch (\Throwable) {
+            }
+        }
+        $applied = $db->prepare('SELECT value FROM app_meta WHERE `key`=?')->bind($key)->first();
+        $hasSuperadmin = $db->prepare('SELECT id FROM users WHERE role=? ORDER BY id LIMIT 1')->bind(UserAccess::SUPERADMIN)->first();
+        if (! $hasSuperadmin) {
+            $seed = self::seedUser();
+            $owner = null;
+            if ($seed !== null) {
+                $owner = $db->prepare('SELECT id FROM users WHERE email=?')->bind($seed['email'])->first();
+            }
+            if (! $owner) {
+                $owner = $db->prepare('SELECT id FROM users ORDER BY id LIMIT 1')->first();
+            }
+            if ($owner) {
+                $db->prepare('UPDATE users SET role=? WHERE id=?')->bind(UserAccess::SUPERADMIN, (int) $owner->id)->run();
+            }
+        }
+        if (($applied->value ?? null) !== 'done') {
+            $db->prepare($db->upsertMeta())->bind($key, 'done')->run();
+        }
     }
 
     private static function addUserIdColumn(SqliteStore $db, string $table): void
@@ -242,7 +278,7 @@ final class SchemaInstaller
         return ['email' => $email, 'name' => $name, 'password' => $password];
     }
 
-    public static function createUser(SqliteStore $db, object $payload, bool $seed = true): array
+    public static function createUser(SqliteStore $db, object $payload, bool $seed = true, string $role = UserAccess::USER): array
     {
         $normalized = Values::normalizeEmail($payload->email ?? '');
         if (! Values::validEmail($normalized)) {
@@ -251,17 +287,16 @@ final class SchemaInstaller
         if (! Values::text($payload->name ?? null)) {
             throw new \RuntimeException('Escribe un nombre.');
         }
-        if (strlen((string) ($payload->password ?? '')) < 6) {
-            throw new \RuntimeException('La contraseña debe tener al menos 6 caracteres.');
-        }
+        UserDirectory::assertPassword((string) ($payload->password ?? ''));
         $existing = $db->prepare('SELECT id FROM users WHERE email=?')->bind($normalized)->first();
         if ($existing) {
             throw new \RuntimeException('Ese correo ya está registrado.');
         }
+        $role = UserAccess::normalize($role);
         $hashed = PasswordHasher::hash((string) $payload->password);
-        $inserted = $db->prepare('INSERT INTO users(email,name,password_hash,password_salt) VALUES(?,?,?,?)')
-            ->bind($normalized, substr(Values::text($payload->name), 0, 80), $hashed['hash'], $hashed['salt'])->run();
-        $row = $db->prepare('SELECT id,email,name,created_at createdAt FROM users WHERE id=?')
+        $inserted = $db->prepare('INSERT INTO users(email,name,password_hash,password_salt,role) VALUES(?,?,?,?,?)')
+            ->bind($normalized, substr(Values::text($payload->name), 0, 80), $hashed['hash'], $hashed['salt'], $role)->run();
+        $row = $db->prepare('SELECT id,email,name,role,created_at createdAt FROM users WHERE id=?')
             ->bind((int) $inserted->meta->last_row_id)->first();
         if ($seed) {
             self::seedWorkspace($db, (int) $row->id);

@@ -27,7 +27,7 @@ final class AuthSessions
         $now = $db->nowExpr();
         $db->prepare("DELETE FROM sessions WHERE expires_at < {$now}")->run();
 
-        return $db->prepare("SELECT u.id,u.email,u.name,u.created_at createdAt FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND s.expires_at >= {$now}")
+        return $db->prepare("SELECT u.id,u.email,u.name,u.role,u.created_at createdAt FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND s.expires_at >= {$now}")
             ->bind($token)->first();
     }
 

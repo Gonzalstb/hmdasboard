@@ -9,10 +9,11 @@
 
 import { hashPassword, verifyPassword } from "../../auth/crypto.js";
 import { createSession } from "../../auth/session.js";
+import { assertPassword } from "../../auth/access.js";
 
 export async function handle(db, payload, filesBucket, uid, result) {
     const currentPassword=String(payload.currentPassword||""),newPassword=String(payload.newPassword||"");
-    if(newPassword.length<6)throw new Error("La nueva contraseña debe tener al menos 6 caracteres.");
+    assertPassword(newPassword);
     const user=await db.prepare("SELECT password_hash passwordHash,password_salt passwordSalt FROM users WHERE id=?").bind(uid).first();
     if(!user||!(await verifyPassword(currentPassword,user.passwordHash,user.passwordSalt)))throw new Error("La contraseña actual no es correcta.");
     const hashed=await hashPassword(newPassword);

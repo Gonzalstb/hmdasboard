@@ -9,9 +9,7 @@ use App\Support\PasswordHasher;
 use App\Support\SqliteStore;
 use App\Support\Values;
 
-final class EarlyReturn
-{
-}
+final class EarlyReturn {}
 
 final class ActionDispatcher
 {
@@ -24,6 +22,9 @@ final class ActionDispatcher
             'update_profile' => 'updateProfile',
             'change_password' => 'changePassword',
             'create_user' => 'createUser',
+            'update_user' => 'updateUser',
+            'reset_user_password' => 'resetUserPassword',
+            'delete_user' => 'deleteUser',
             'save_ticket' => 'saveTicket',
             'set_ticket_labels' => 'setTicketLabels',
             'set_ticket_attention' => 'setTicketAttention',
@@ -99,9 +100,7 @@ final class ActionDispatcher
     {
         $currentPassword = (string) ($payload->currentPassword ?? '');
         $newPassword = (string) ($payload->newPassword ?? '');
-        if (strlen($newPassword) < 6) {
-            throw new \RuntimeException('La nueva contraseña debe tener al menos 6 caracteres.');
-        }
+        UserDirectory::assertPassword($newPassword);
         $user = $db->prepare('SELECT password_hash passwordHash,password_salt passwordSalt FROM users WHERE id=?')->bind($uid)->first();
         if (! $user || ! PasswordHasher::verify($currentPassword, $user->passwordHash, $user->passwordSalt)) {
             throw new \RuntimeException('La contraseña actual no es correcta.');
@@ -114,7 +113,23 @@ final class ActionDispatcher
 
     private static function createUser(SqliteStore $db, object $payload, FileStore $files, int $uid, array &$result): void
     {
-        SchemaInstaller::createUser($db, $payload, true);
+        UserAccess::requireSuperadmin($db, $uid);
+        UserDirectory::create($db, $payload);
+    }
+
+    private static function updateUser(SqliteStore $db, object $payload, FileStore $files, int $uid, array &$result): void
+    {
+        UserDirectory::update($db, $uid, $payload);
+    }
+
+    private static function resetUserPassword(SqliteStore $db, object $payload, FileStore $files, int $uid, array &$result): void
+    {
+        UserDirectory::resetPassword($db, $uid, $payload);
+    }
+
+    private static function deleteUser(SqliteStore $db, object $payload, FileStore $files, int $uid, array &$result): void
+    {
+        UserDirectory::delete($db, $files, $uid, $payload);
     }
 
     private static function saveTicket(SqliteStore $db, object $payload, FileStore $files, int $uid, array &$result): void
@@ -193,7 +208,7 @@ final class ActionDispatcher
     {
         $ticketId = (int) Values::number($payload->ticketId ?? 0);
         $attentionMarkerId = (int) Values::number($payload->attentionMarkerId ?? 0);
-        $ticket = $db->prepare('SELECT id FROM tickets WHERE id=?')->bind($ticketId)->first();
+        $ticket = $db->prepare('SELECT id FROM tickets WHERE id=? AND user_id=?')->bind($ticketId, $uid)->first();
         if (! $ticket) {
             throw new \RuntimeException('El ticket ya no existe.');
         }
@@ -227,11 +242,11 @@ final class ActionDispatcher
         $db->prepare('UPDATE tickets SET avatar_key=? WHERE id=? AND user_id=?')->bind($avatarKey !== '' ? $avatarKey : null, $ticketId, $uid)->run();
     }
 
-    private static function status(SqliteStore $db, object $payload, FileStore $files, int $uid, array &$result): EarlyReturn|null
+    private static function status(SqliteStore $db, object $payload, FileStore $files, int $uid, array &$result): ?EarlyReturn
     {
         $id = (int) Values::number($payload->id ?? 0);
         $statusId = (int) Values::number($payload->statusId ?? 0);
-        $targetStatus = $db->prepare("SELECT id,name,color,CASE WHEN lower(name)='done' THEN 1 ELSE 0 END isDone,CASE WHEN lower(name)='cancelled' THEN 1 ELSE 0 END isCancelled FROM statuses WHERE id=?")->bind($statusId)->first();
+        $targetStatus = $db->prepare("SELECT id,name,color,CASE WHEN lower(name)='done' THEN 1 ELSE 0 END isDone,CASE WHEN lower(name)='cancelled' THEN 1 ELSE 0 END isCancelled FROM statuses WHERE id=? AND user_id=?")->bind($statusId, $uid)->first();
         if (! $targetStatus) {
             throw new \RuntimeException('El estado seleccionado ya no existe.');
         }
@@ -657,7 +672,7 @@ final class ActionDispatcher
         $db->prepare('INSERT INTO reminders(content,due_date,user_id) VALUES(?,?,?)')->bind($content, $dueDate, $uid)->run();
     }
 
-    private static function completeReminder(SqliteStore $db, object $payload, FileStore $files, int $uid, array &$result): EarlyReturn|null
+    private static function completeReminder(SqliteStore $db, object $payload, FileStore $files, int $uid, array &$result): ?EarlyReturn
     {
         $id = (int) Values::number($payload->id ?? 0);
         $reminder = $db->prepare('SELECT due_date dueDate,is_done isDone FROM reminders WHERE id=? AND user_id=?')->bind($id, $uid)->first();
@@ -810,7 +825,7 @@ final class ActionDispatcher
     private static function archivePermanentNote(SqliteStore $db, object $payload, FileStore $files, int $uid, array &$result): void
     {
         $id = (int) Values::number($payload->id ?? 0);
-        $note = $db->prepare('SELECT id FROM permanent_notes WHERE id=?')->bind($id)->first();
+        $note = $db->prepare('SELECT id FROM permanent_notes WHERE id=? AND user_id=?')->bind($id, $uid)->first();
         if (! $note) {
             throw new \RuntimeException('La nota permanente ya no existe.');
         }

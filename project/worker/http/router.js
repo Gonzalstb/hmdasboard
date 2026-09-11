@@ -36,7 +36,7 @@ export default {
         await ensureSetup(env.DB, env);
         const payload = await request.json();
         const email = normalizeEmail(payload.email);
-        const user = await env.DB.prepare("SELECT id,email,name,password_hash passwordHash,password_salt passwordSalt FROM users WHERE email=?").bind(email).first();
+        const user = await env.DB.prepare("SELECT id,email,name,role,password_hash passwordHash,password_salt passwordSalt FROM users WHERE email=?").bind(email).first();
         if (!user || !(await verifyPassword(String(payload.password || ""), user.passwordHash, user.passwordSalt))) {
           return jsonResponse({ error: "Correo o contraseña incorrectos." }, noStore, {}, 401);
         }
@@ -89,7 +89,7 @@ export default {
         if(result.newSession){headers["set-cookie"]=sessionCookie(result.newSession);delete result.newSession}
         return Response.json({...await getData(env.DB, Number(user.id)),...result}, { headers });
       } catch (error) {
-        return Response.json({ error: error instanceof Error ? error.message : "No se pudo guardar." }, { status: 400, headers: noStore });
+        return Response.json({ error: error instanceof Error ? error.message : "No se pudo guardar." }, { status: error?.status || 400, headers: noStore });
       }
     }
     return new Response("Not found", { status: 404 });

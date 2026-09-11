@@ -11,6 +11,9 @@ import { EARLY_RETURN } from "./early-return.js";
 import { handle as update_profile } from "./update_profile.js";
 import { handle as change_password } from "./change_password.js";
 import { handle as create_user } from "./create_user.js";
+import { handle as update_user } from "./update_user.js";
+import { handle as reset_user_password } from "./reset_user_password.js";
+import { handle as delete_user } from "./delete_user.js";
 import { handle as save_ticket } from "./save_ticket.js";
 import { handle as set_ticket_labels } from "./set_ticket_labels.js";
 import { handle as set_ticket_attention } from "./set_ticket_attention.js";
@@ -57,6 +60,9 @@ const handlers = {
   update_profile,
   change_password,
   create_user,
+  update_user,
+  reset_user_password,
+  delete_user,
   save_ticket,
   set_ticket_labels,
   set_ticket_attention,
