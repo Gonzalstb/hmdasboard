@@ -151,22 +151,22 @@ final class ActionDispatcher
             }
             $db->batch($updates);
         } else {
-            $row = $db->prepare('INSERT INTO tickets(ticket_key,title,summary,status_id,priority,next_action,attention_marker_id,due_date,jira_url,user_id) SELECT ?,?,?,?,?,?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM tickets WHERE user_id=? AND upper(trim(ticket_key))=?) RETURNING id')
-                ->bind($key, $title, Values::text($payload->summary ?? null), $statusId, Values::text($payload->priority ?? null) ?: 'medium', Values::text($payload->nextAction ?? null), $attentionMarkerId ?: null, Values::text($payload->dueDate ?? null) ?: null, Values::text($payload->jiraUrl ?? null), $uid, $uid, $key)->first();
-            if (! $row) {
+            $inserted = $db->prepare('INSERT INTO tickets(ticket_key,title,summary,status_id,priority,next_action,attention_marker_id,due_date,jira_url,user_id) SELECT ?,?,?,?,?,?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM tickets WHERE user_id=? AND upper(trim(ticket_key))=?)')
+                ->bind($key, $title, Values::text($payload->summary ?? null), $statusId, Values::text($payload->priority ?? null) ?: 'medium', Values::text($payload->nextAction ?? null), $attentionMarkerId ?: null, Values::text($payload->dueDate ?? null) ?: null, Values::text($payload->jiraUrl ?? null), $uid, $uid, $key)->run();
+            if (! (int) ($inserted->meta->changes ?? 0)) {
                 throw new \RuntimeException('El código '.$key.' ya pertenece a otro ticket. Cada ticket debe tener un código único y no se ha creado.');
             }
-            $payload->id = $row->id;
+            $payload->id = (int) $inserted->meta->last_row_id;
             $db->batch([
-                $db->prepare('UPDATE tickets SET completed_at=CASE WHEN ?=1 THEN CURRENT_TIMESTAMP ELSE NULL END,cancelled_at=CASE WHEN ?=1 THEN CURRENT_TIMESTAMP ELSE NULL END WHERE id=? AND user_id=?')->bind((int) $targetStatus->isDone, (int) $targetStatus->isCancelled, (int) $row->id, $uid),
-                $db->prepare("INSERT INTO ticket_status_history(ticket_id,to_status_id,to_status_name,to_status_color,event_type) VALUES(?,?,?,?,'created')")->bind((int) $row->id, $statusId, (string) $targetStatus->name, (string) $targetStatus->color),
+                $db->prepare('UPDATE tickets SET completed_at=CASE WHEN ?=1 THEN CURRENT_TIMESTAMP ELSE NULL END,cancelled_at=CASE WHEN ?=1 THEN CURRENT_TIMESTAMP ELSE NULL END WHERE id=? AND user_id=?')->bind((int) $targetStatus->isDone, (int) $targetStatus->isCancelled, (int) $payload->id, $uid),
+                $db->prepare("INSERT INTO ticket_status_history(ticket_id,to_status_id,to_status_name,to_status_color,event_type) VALUES(?,?,?,?,'created')")->bind((int) $payload->id, $statusId, (string) $targetStatus->name, (string) $targetStatus->color),
             ]);
         }
         $ticketId = (int) Values::number($payload->id ?? 0);
         $db->batch([
             $db->prepare('DELETE FROM ticket_labels WHERE ticket_id=?')->bind($ticketId),
             ...array_map(
-                fn (int $labelId) => $db->prepare('INSERT OR IGNORE INTO ticket_labels(ticket_id,label_id) SELECT ?,id FROM labels WHERE id=? AND user_id=?')->bind($ticketId, $labelId, $uid),
+                fn (int $labelId) => $db->prepare($db->insertIgnore().' INTO ticket_labels(ticket_id,label_id) SELECT ?,id FROM labels WHERE id=? AND user_id=?')->bind($ticketId, $labelId, $uid),
                 Values::idList($payload->labelIds ?? null),
             ),
         ]);
@@ -182,7 +182,7 @@ final class ActionDispatcher
         $db->batch([
             $db->prepare('DELETE FROM ticket_labels WHERE ticket_id=?')->bind($ticketId),
             ...array_map(
-                fn (int $labelId) => $db->prepare('INSERT OR IGNORE INTO ticket_labels(ticket_id,label_id) SELECT ?,id FROM labels WHERE id=? AND user_id=?')->bind($ticketId, $labelId, $uid),
+                fn (int $labelId) => $db->prepare($db->insertIgnore().' INTO ticket_labels(ticket_id,label_id) SELECT ?,id FROM labels WHERE id=? AND user_id=?')->bind($ticketId, $labelId, $uid),
                 Values::idList($payload->labelIds ?? null),
             ),
             $db->prepare('UPDATE tickets SET updated_at=CURRENT_TIMESTAMP WHERE id=? AND user_id=?')->bind($ticketId, $uid),
@@ -263,7 +263,7 @@ final class ActionDispatcher
         if (! $ticket) {
             throw new \RuntimeException('El ticket ya no existe.');
         }
-        $inserted = $db->prepare("INSERT INTO comments(ticket_id,content) SELECT ?,? WHERE NOT EXISTS (SELECT 1 FROM comments WHERE ticket_id=? AND content=? AND created_at>=datetime('now','-12 seconds'))")->bind($ticketId, $content, $ticketId, $content)->run();
+        $inserted = $db->prepare('INSERT INTO comments(ticket_id,content) SELECT ?,? WHERE NOT EXISTS (SELECT 1 FROM comments WHERE ticket_id=? AND content=? AND created_at>='.$db->nowMinusSeconds(12).')')->bind($ticketId, $content, $ticketId, $content)->run();
         if ((int) ($inserted->meta->changes ?? 0)) {
             $db->prepare('UPDATE tickets SET updated_at=CURRENT_TIMESTAMP WHERE id=? AND user_id=?')->bind($ticketId, $uid)->run();
         }
@@ -543,7 +543,7 @@ final class ActionDispatcher
                 throw new \RuntimeException('La subtarea ya no existe.');
             }
         }
-        $db->prepare("INSERT INTO agenda_task_comments(task_id,subtask_id,content) SELECT ?,?,? WHERE NOT EXISTS (SELECT 1 FROM agenda_task_comments WHERE task_id=? AND subtask_id=? AND content=? AND created_at>=datetime('now','-12 seconds'))")
+        $db->prepare('INSERT INTO agenda_task_comments(task_id,subtask_id,content) SELECT ?,?,? WHERE NOT EXISTS (SELECT 1 FROM agenda_task_comments WHERE task_id=? AND subtask_id=? AND content=? AND created_at>='.$db->nowMinusSeconds(12).')')
             ->bind($taskId, $subtaskId, $content, $taskId, $subtaskId, $content)->run();
     }
 
@@ -633,7 +633,7 @@ final class ActionDispatcher
 
                 return $content !== '' ? ['id' => (int) ($item['id'] ?? 0), 'content' => $content, 'isDone' => false] : null;
             }, $copiedSubtasks)));
-            $statements[] = $db->prepare('INSERT OR IGNORE INTO agenda_tasks(task_date,content,position,is_done,link_type,link_id,copied_from_id,subtasks,user_id) VALUES(?,?,?,0,?,?,?,?,?)')
+            $statements[] = $db->prepare($db->insertIgnore().' INTO agenda_tasks(task_date,content,position,is_done,link_type,link_id,copied_from_id,subtasks,user_id) VALUES(?,?,?,0,?,?,?,?,?)')
                 ->bind($toDate, (string) $row->content, $position, (string) ($row->linkType ?? ''), $row->linkId ?: null, (int) $row->id, json_encode($copiedSubtasks, JSON_UNESCAPED_UNICODE), $uid);
             $position++;
         }
@@ -771,8 +771,8 @@ final class ActionDispatcher
             if ($content === '' && ! $hasSelectedFiles) {
                 throw new \RuntimeException('Escribe una anotación o adjunta al menos un documento.');
             }
-            $row = $db->prepare('INSERT INTO permanent_notes(title,content,user_id) VALUES(?,?,?) RETURNING id')->bind($title, $content, $uid)->first();
-            $result['savedNoteId'] = (int) Values::number($row->id ?? 0);
+            $inserted = $db->prepare('INSERT INTO permanent_notes(title,content,user_id) VALUES(?,?,?)')->bind($title, $content, $uid)->run();
+            $result['savedNoteId'] = (int) $inserted->meta->last_row_id;
         }
     }
 
@@ -867,8 +867,8 @@ final class ActionDispatcher
             if ($standupDate < $today) {
                 throw new \RuntimeException('No puedes crear una guía con una fecha pasada.');
             }
-            $row = $db->prepare('INSERT INTO standup_guides(title,standup_date,user_id) VALUES(?,?,?) RETURNING id')->bind($title, $standupDate, $uid)->first();
-            $payload->id = $row->id;
+            $inserted = $db->prepare('INSERT INTO standup_guides(title,standup_date,user_id) VALUES(?,?,?)')->bind($title, $standupDate, $uid)->run();
+            $payload->id = (int) $inserted->meta->last_row_id;
         }
         $guideId = (int) Values::number($payload->id ?? 0);
         $positions = ['points' => 0, 'highlights' => 0, 'deployed_bdonline' => 0, 'pending_bdonline' => 0];

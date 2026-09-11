@@ -59,7 +59,7 @@ final class BoundStatement
     public function executeForBatch(): object
     {
         $trimmed = ltrim($this->sql);
-        if (preg_match('/^(SELECT|WITH|PRAGMA|EXPLAIN)\b/i', $trimmed) === 1) {
+        if (preg_match('/^(SELECT|WITH|PRAGMA|EXPLAIN|SHOW|DESCRIBE|DESC)\b/i', $trimmed) === 1) {
             return $this->all();
         }
 

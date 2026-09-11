@@ -1,0 +1,38 @@
+services:
+  mariadb:
+    image: mariadb:11.4
+    container_name: mytickets-mariadb
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: mytickets_local
+      MYSQL_DATABASE: mytickets
+      MYSQL_USER: mytickets
+      MYSQL_PASSWORD: mytickets_local
+    ports:
+      - "3307:3306"
+    volumes:
+      - mytickets_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  phpmyadmin:
+    image: phpmyadmin:5
+    container_name: mytickets-phpmyadmin
+    restart: unless-stopped
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    environment:
+      PMA_HOST: mariadb
+      PMA_PORT: 3306
+      PMA_USER: mytickets
+      PMA_PASSWORD: mytickets_local
+      UPLOAD_LIMIT: 64M
+    ports:
+      - "8081:80"
+
+volumes:
+  mytickets_mysql_data:

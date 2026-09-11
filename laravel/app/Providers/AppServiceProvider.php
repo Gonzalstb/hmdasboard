@@ -7,20 +7,17 @@ use App\Support\Paths;
 use App\Support\SqliteStore;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\ServiceProvider;
-use PDO;
 
 class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $this->app->singleton(SqliteStore::class, function (): SqliteStore {
-            File::ensureDirectoryExists(Paths::dataDir());
+        $this->app->singleton(SqliteStore::class, fn (): SqliteStore => SqliteStore::connect());
+        $this->app->singleton(FileStore::class, function (): FileStore {
             File::ensureDirectoryExists(Paths::filesDir());
-            $pdo = new PDO('sqlite:'.Paths::sqlitePath());
 
-            return new SqliteStore($pdo);
+            return new FileStore(Paths::filesDir());
         });
-        $this->app->singleton(FileStore::class, fn (): FileStore => new FileStore(Paths::filesDir()));
     }
 
     public function boot(): void
